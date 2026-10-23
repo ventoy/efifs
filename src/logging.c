@@ -61,6 +61,7 @@ PrintStatus(EFI_STATUS Status)
 #endif
 }
 
+int g_fs_name_nocase = 0;
 /*
  * You can control the verbosity of the driver output by setting the shell environment
  * variable FS_LOGGING to one of the values defined in the FS_LOGLEVEL constants
@@ -71,6 +72,11 @@ SetLogging(VOID)
 	EFI_STATUS Status;
 	CHAR16 LogVar[4];
 	UINTN i, LogVarSize = sizeof(LogVar);
+
+	i = LogVarSize;
+	Status = RT->GetVariable(L"FS_NAME_NOCASE", &ShellVariable, NULL, &i, LogVar);
+	if (Status == EFI_SUCCESS)
+		g_fs_name_nocase = 1;
 
 	Status = RT->GetVariable(L"FS_LOGGING", &ShellVariable, NULL, &LogVarSize, LogVar);
 	if (Status == EFI_SUCCESS)
