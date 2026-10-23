@@ -1,28 +1,13 @@
 name: Linux, gcc, EDK2
 
-on: 
-  push:
-    paths-ignore:
-      - '.gitignore'
-      - '.gitattributes'
-      - '**.cmd'
-      - '!set_grub_cpu.cmd'
-      - '**.md'
-      - '**.sh'
-      - '!set_grub_cpu.sh'
-      - '**.txt'
-      - '**.vbs'
-  pull_request:
-    paths-ignore:
-      - '.gitignore'
-      - '.gitattributes'
-      - '**.cmd'
-      - '!set_grub_cpu.cmd'
-      - '**.md'
-      - '**.sh'
-      - '!set_grub_cpu.sh'
-      - '**.txt'
-      - '**.vbs'
+# 改为只有手动触发，避免每次 commit 都跑耗费大量时间的 QEMU 测试
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: '输入版本号发布 Release (例如 v1.0.0)。留空则只构建和测试，不发布。'
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -108,9 +93,10 @@ jobs:
         path: edk2/Build/EfiFs/${{ env.BUILD_TYPE }}_${{ env.COMPILER }}/${{ matrix.arch }}/*.efi
 
     - name: Create web artifacts
-      if: startsWith(github.ref, 'refs/tags/')
+      # 只有填了版本号才生成 web 文件
+      if: github.event.inputs.release_tag != ''
       run: |
-        GIT_VERSION=$(git --git-dir edk2/EfiFsPkg/.git describe --tags --abbrev=0)
+        GIT_VERSION=${{ github.event.inputs.release_tag }}
         DIR_VERSION=${GIT_VERSION:1}
         mkdir -p web/${{ matrix.short }}
         curl -L https://raw.githubusercontent.com/pbatard/efifs/gh-pages/downloads/header.html -o web/${{ matrix.short }}/index.html
@@ -126,8 +112,8 @@ jobs:
         printf "<hr></pre>\n  </body>\n</html>\n" >> web/${{ matrix.short }}/index.html
 
     - name: Upload web artifacts
+      if: github.event.inputs.release_tag != ''
       uses: actions/upload-artifact@v4
-      if: startsWith(github.ref, 'refs/tags/')
       with:
         name: web_files_${{ matrix.short }}
         path: web/*/index.html
@@ -211,14 +197,15 @@ jobs:
   merge-release-artifacts:
     runs-on: ubuntu-26.04
     needs: tests
-    if: startsWith(github.ref, 'refs/tags/')
+    # 只有当你在输入框填了版本号时，才会执行打包和发布
+    if: github.event.inputs.release_tag != ''
     steps:
-      # 注意：去掉了 merge-multiple，文件会下载到各自 artifact 名字的子目录中 (如 release/x64/xxx.efi)
       - name: Download all EFI artifacts
         uses: actions/download-artifact@v4
         with:
           path: release/
-          pattern: 'x64|ia32|aa64|riscv64|loongarch64'
+          pattern: '{x64,ia32,aa64,riscv64,loongarch64}'
+          merge-multiple: true
 
       - name: Download web artifacts
         uses: actions/download-artifact@v4
@@ -228,12 +215,14 @@ jobs:
 
       - name: Display SHA-256
         run: |
-          find release -name '*.efi' -exec sha256sum {} \;
+          cd release
+          sha256sum *.efi
 
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
-          # 使用 **/*.efi 递归查找所有子目录中的 efi 文件
-          files: release/**/*.efi
+          # 直接使用你手动输入的版本号作为 Tag
+          tag_name: ${{ github.event.inputs.release_tag }}
+          files: release/*.efi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
