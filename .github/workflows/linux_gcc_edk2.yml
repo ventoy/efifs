@@ -89,6 +89,7 @@ jobs:
       run: |
         cd edk2/EfiFsPkg/grub
         git apply ../0001-GRUB-fixes.patch
+        git apply -p2 ../0002-ventoy-grub.patch
 
     - name: Build UEFI drivers
       run: |
