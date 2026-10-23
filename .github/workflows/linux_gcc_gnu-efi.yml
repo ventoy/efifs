@@ -79,6 +79,7 @@ jobs:
       run: |
         cd gnu-efi
         git apply ../0001-gnu-efi-fixes.patch
+        git apply --ignore-whitespace ..\0002-ventoy-grub.patch
         cd ..
 
     - name: Build drivers
