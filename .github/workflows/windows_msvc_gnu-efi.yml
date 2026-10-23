@@ -43,6 +43,7 @@ jobs:
       run: |
         cd grub
         git apply ..\0001-GRUB-fixes.patch
+        git apply -p2 ..\0002-ventoy-grub.patch
         cd ..
 
     - name: Add MSBuild to PATH
