@@ -73,7 +73,7 @@ jobs:
       run: |
         cd grub
         git apply ../0001-GRUB-fixes.patch
-        git apply --ignore-whitespace ..\0002-ventoy-grub.patch
+        git apply --ignore-whitespace ../0002-ventoy-grub.patch
         cd ..
 
     - name: Patch gnu-efi
