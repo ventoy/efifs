@@ -336,7 +336,7 @@ FileReadDir(EFI_GRUB_FILE *File, UINTN *Len, VOID *Data)
 	INTN len;
 
 	/* Unless we can fit our maximum size, forget it */
-	if (*Len < MINIMUM_INFO_LENGTH) {
+	if (*Len < sizeof(EFI_FILE_INFO)) {
 		*Len = MINIMUM_INFO_LENGTH;
 		return EFI_BUFFER_TOO_SMALL;
 	}
@@ -360,7 +360,11 @@ FileReadDir(EFI_GRUB_FILE *File, UINTN *Len, VOID *Data)
 	}
 
 	if (EFI_ERROR(Status)) {
-		PrintStatusError(Status, L"Directory listing failed");
+		if (Status == EFI_BUFFER_TOO_SMALL) {
+            *Len = MINIMUM_INFO_LENGTH;
+        } else {
+		    PrintStatusError(Status, L"Directory listing failed");
+        }
 		return Status;
 	}
 
@@ -550,7 +554,7 @@ FileGetInfo(EFI_FILE_HANDLE This, EFI_GUID *Type, UINTN *Len, VOID *Data)
 
 		/* Fill file information */
 		PrintExtra(L"Get regular file information\n");
-		if (*Len < MINIMUM_INFO_LENGTH) {
+		if (*Len < sizeof(EFI_FILE_INFO)) {
 			*Len = MINIMUM_INFO_LENGTH;
 			return EFI_BUFFER_TOO_SMALL;
 		}
@@ -573,8 +577,11 @@ FileGetInfo(EFI_FILE_HANDLE This, EFI_GUID *Type, UINTN *Len, VOID *Data)
 		tmpLen = (UINTN)(Info->Size - SIZE_OF_EFI_FILE_INFO);
 		Status = Utf8ToUtf16NoAllocUpdateLen(File->basename, Info->FileName, &tmpLen);
 		if (EFI_ERROR(Status)) {
-			if (Status != EFI_BUFFER_TOO_SMALL)
+			if (Status != EFI_BUFFER_TOO_SMALL) {
 				PrintStatusError(Status, L"Could not convert basename to UTF-16");
+            } else {
+                *Len = MINIMUM_INFO_LENGTH;
+            }
 			return Status;
 		}
 
@@ -586,7 +593,7 @@ FileGetInfo(EFI_FILE_HANDLE This, EFI_GUID *Type, UINTN *Len, VOID *Data)
 
 		/* Get file system information */
 		PrintExtra(L"Get file system information\n");
-		if (*Len < MINIMUM_FS_INFO_LENGTH) {
+		if (*Len < sizeof(EFI_FILE_SYSTEM_INFO)) {
 			*Len = MINIMUM_FS_INFO_LENGTH;
 			return EFI_BUFFER_TOO_SMALL;
 		}
@@ -623,8 +630,11 @@ FileGetInfo(EFI_FILE_HANDLE This, EFI_GUID *Type, UINTN *Len, VOID *Data)
 			tmpLen = (INTN)(FSInfo->Size - SIZE_OF_EFI_FILE_SYSTEM_INFO);
 			Status = Utf8ToUtf16NoAllocUpdateLen(label, FSInfo->VolumeLabel, &tmpLen);
 			if (EFI_ERROR(Status)) {
-				if (Status != EFI_BUFFER_TOO_SMALL)
+				if (Status != EFI_BUFFER_TOO_SMALL) {
 					PrintStatusError(Status, L"Could not convert label to UTF-16");
+                } else {
+                    *Len = MINIMUM_FS_INFO_LENGTH;
+                }
 				return Status;
 			}
 			FSInfo->Size = SIZE_OF_EFI_FILE_SYSTEM_INFO + tmpLen;
