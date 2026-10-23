@@ -1,21 +1,20 @@
---- a/grub-core/fs/iso9660.c	2026-10-23 10:57:38.487478400 +0800
-+++ b/grub-core/fs/iso9660.c	2026-10-23 10:59:25.839848721 +0800
-@@ -52,6 +52,8 @@
- #define GRUB_ISO9660_SUSP_HEADER_SZ	4
- #define GRUB_ISO9660_MAX_CE_HOPS	100000
- 
+--- a/grub-core/fs/iso9660.c    2026-10-23 10:57:38.487478400 +0800
++++ b/grub-core/fs/iso9660.c    2026-10-23 11:58:14.988846751 +0800
+@@ -32,6 +32,7 @@
+
+ GRUB_MOD_LICENSE ("GPLv3+");
+
 +extern int g_fs_name_nocase;
+ #define GRUB_ISO9660_FSTYPE_DIR                0040000
+ #define GRUB_ISO9660_FSTYPE_REG                0100000
+ #define GRUB_ISO9660_FSTYPE_SYMLINK    0120000
+@@ -845,6 +846,9 @@
+        if (!ctx.filename && dirent.namelen == 1 && name[0] == 1)
+          ctx.filename = (char *) "..";
+
++       if (g_fs_name_nocase)
++               ctx.type |= GRUB_FSHELP_CASE_INSENSITIVE;
 +
- /* The head of a volume descriptor.  */
- struct grub_iso9660_voldesc
- {
-@@ -845,6 +847,9 @@
- 	if (!ctx.filename && dirent.namelen == 1 && name[0] == 1)
- 	  ctx.filename = (char *) "..";
- 
-+	if (g_fs_name_nocase)
-+		ctx.type |= GRUB_FSHELP_CASE_INSENSITIVE;
-+
- 	/* The filename was not stored in a rock ridge entry.  Read it
- 	   from the iso9660 filesystem.  */
- 	if (!dir->data->joliet && !ctx.filename)
+        /* The filename was not stored in a rock ridge entry.  Read it
+           from the iso9660 filesystem.  */
+        if (!dir->data->joliet && !ctx.filename)
