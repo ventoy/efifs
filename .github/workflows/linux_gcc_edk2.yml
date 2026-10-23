@@ -24,6 +24,9 @@ on:
       - '**.txt'
       - '**.vbs'
 
+permissions:
+  contents: write
+
 env:
   BUILD_TYPE: RELEASE
   COMPILER: GCC
@@ -89,7 +92,6 @@ jobs:
       run: |
         cd edk2/EfiFsPkg/grub
         git apply ../0001-GRUB-fixes.patch
-        git apply --ignore-whitespace ../0002-ventoy-grub.patch
 
     - name: Build UEFI drivers
       run: |
@@ -101,24 +103,9 @@ jobs:
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v7
-      if: ${{ github.event_name == 'push' }}
       with:
         name: ${{ matrix.short }}
         path: edk2/Build/EfiFs/${{ env.BUILD_TYPE }}_${{ env.COMPILER }}/${{ matrix.arch }}/*.efi
-
-    - name: Display SHA-256
-      if: startsWith(github.ref, 'refs/tags/')
-      run: |
-        mv edk2/Build/EfiFs/${{ env.BUILD_TYPE }}_${{ env.COMPILER }}/${{ matrix.arch }}/*.efi .
-        sha256sum *.efi
-
-    - name: Create release
-      uses: softprops/action-gh-release@v2
-      if: startsWith(github.ref, 'refs/tags/')
-      env:
-        GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
-      with:
-        files: ./*.efi
 
     - name: Create web artifacts
       if: startsWith(github.ref, 'refs/tags/')
@@ -128,11 +115,12 @@ jobs:
         mkdir -p web/${{ matrix.short }}
         curl -L https://raw.githubusercontent.com/pbatard/efifs/gh-pages/downloads/header.html -o web/${{ matrix.short }}/index.html
         printf "<pre><img src=\"/icons/blank.png\" alt=\"Icon\" width=\"32\" height=\"32\"> Name                       Last modified      Size  Description<hr><a href=\"/downloads/efifs-%s/\"><img src=\"/icons/back.png\" alt=\"[PARENTDIR]\" width=\"32\" height=\"32\"></a> <a href=\"/downloads/efifs-%s/\">Parent Directory</a>                               -\n" ${DIR_VERSION} ${DIR_VERSION} >> web/${{ matrix.short }}/index.html
-        for f in *.efi; do
+        for f in edk2/Build/EfiFs/${{ env.BUILD_TYPE }}_${{ env.COMPILER }}/${{ matrix.arch }}/*.efi; do
+          f_name=$(basename "$f")
           TIMESTAMP=$(date -r $f "+%Y-%m-%d %H:%M");
           SIZE=$(du --apparent-size -sh $f | awk '{ print $1 }');
-          LINK=https://github.com/pbatard/efifs/releases/download/${GIT_VERSION}/$f;
-          FILE_AND_TAG="$f</a>";
+          LINK=https://github.com/pbatard/efifs/releases/download/${GIT_VERSION}/$f_name;
+          FILE_AND_TAG="$f_name</a>";
           printf "<a href=\"%s\"><img src=\"/icons/uefi.svg\" alt=\"[EFI]\" width=\"32\" height=\"32\"></a> <a href=\"%s\">%-31s%-19s%-5s\n" "${LINK}" "${LINK}" "${FILE_AND_TAG}" "${TIMESTAMP}" "${SIZE}" >> web/${{ matrix.short }}/index.html;
         done
         printf "<hr></pre>\n  </body>\n</html>\n" >> web/${{ matrix.short }}/index.html
@@ -192,7 +180,7 @@ jobs:
     - name: Download artifacts
       uses: actions/download-artifact@v8
       with:
-        name: ${{ matrix.short }}
+        name: ${{ matrix.arch }}
         path: image/
 
     - name: Download UEFI firmware
@@ -225,15 +213,28 @@ jobs:
     needs: tests
     if: startsWith(github.ref, 'refs/tags/')
     steps:
-      - name: Merge Artifacts
-        uses: actions/upload-artifact/merge@v7
-        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+      - name: Download all EFI artifacts
+        uses: actions/download-artifact@v8
         with:
-          name: release_efi_binaries
+          path: release/
+          pattern: 'x64|ia32|aa64|riscv64|loongarch64'
+          merge-multiple: true
 
-      - name: Merge Web Artifacts
-        uses: actions/upload-artifact/merge@v7
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Download web artifacts
+        uses: actions/download-artifact@v8
         with:
-          name: release_web_files
-          delete-merged: true
+          path: web_output/
+          pattern: 'web_files_*'
+          merge-multiple: true
+
+      - name: Display SHA-256
+        run: |
+          cd release
+          sha256sum *.efi
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/*.efi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
